@@ -1,0 +1,814 @@
+---
+title: "Project 6357"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r warning=FALSE}
+setwd=('C:/Users/Vedhus/Desktop/MSDS/6357 Linear models/Project/Project/v3')
+DATA= read.csv('DATA.csv', header=TRUE)
+DATA1=DATA[2:13]
+attach(DATA1)
+
+```
+
+
+#scatterplot for all potential predictors
+
+```{r warning=FALSE}
+
+#par(mfrow = c(2, 2), pch = 20)
+plot(Waterlevel, Assistance,col='dark green')
+plot(Repair, Assistance ,col='dark blue')
+plot(propdamage, Assistance ,col='dark green')
+plot(persdamage, Assistance,col='dark green')
+plot(Income, Assistance, col='dark blue')
+plot(Age, Assistance, col='dark orange')
+plot(Household, Assistance,col='dark orange')
+plot(Houseprice, Assistance, col='dark orange')
+
+plot(Popln, Assistance,col='blue')
+plot(EC, Assistance,col=' blue')
+plot(CO, Assistance,col='blue')
+
+
+```
+
+
+#Building regression model with all predictors
+
+```{r warning=FALSE}
+
+DATA.lm= lm (Assistance ~ Age	+ Household + Houseprice +Income +	Popln +	EC	+CO +	Waterlevel+	Repair+ propdamage +	persdamage
+, DATA1)
+
+summary(DATA.lm)
+round(summary(DATA.lm)$coefficients[1:12],4)
+anova(DATA.lm)
+
+```
+```{r warning=FALSE}
+#correlation among features
+round(cor(DATA1),2)
+
+round(vif(DATA.lm),2)
+```
+
+#Residual analysis through residual plots
+
+```{r warning=FALSE}
+#par(mfrow = c(2, 2), pch = 20)
+
+
+plot(resid(DATA.lm) ~ fitted(DATA.lm), DATA1, ylab = "Residual", main='Residual plot for fitted values',col='dark green')
+abline(h=0)
+
+plot(resid(DATA.lm) ~ Age, DATA1, ylab = "Residual", main='Residual plot for age')
+abline(h=0)
+plot(resid(DATA.lm) ~ Household, DATA1, ylab = "Residual", main='Count of members')
+abline(h=0)
+plot(resid(DATA.lm) ~ Houseprice, DATA1, ylab = "Residual", main='Residual plot for Houseprice')
+abline(h=0)
+plot(resid(DATA.lm) ~Income, DATA1, ylab = "Residual", main='Income')
+abline(h=0)
+par(mfrow = c(2, 2), pch = 20)
+plot(resid(DATA.lm) ~ Popln, DATA1, ylab = "Residual", main='Popln')
+abline(h=0)
+plot(resid(DATA.lm) ~ EC, DATA1, ylab = "Residual", main='Economic connectedness')
+abline(h=0)
+plot(resid(DATA.lm) ~ CO, DATA1, ylab = "Residual", main='civic org')
+abline(h=0)
+plot(resid(DATA.lm) ~Waterlevel, DATA1, ylab = "Residual", main='Waterlevel')
+abline(h=0)
+plot(resid(DATA.lm) ~Repair, DATA1, ylab = "Residual", main='Repair')
+abline(h=0)
+plot(resid(DATA.lm) ~propdamage, DATA1, ylab = "Residual", main='propdamage')
+abline(h=0)
+plot(resid(DATA.lm) ~persdamage, DATA1, ylab = "Residual", main='persdamage')
+abline(h=0)
+
+
+
+qqnorm(resid(DATA.lm),main="qq plot", col='blue')
+qqline(resid(DATA.lm),col='red')
+
+
+```
+
+#Tests for normality assumption
+
+
+```{r warning=FALSE}
+
+shapiro.test(resid(DATA.lm))
+
+
+res1=residuals(DATA.lm,type="response")
+res2=residuals(DATA.lm,type="pearson")
+res3=rstudent(DATA.lm)
+res4=rstandard(DATA.lm)
+shapiro.test(res1)
+shapiro.test(res2)
+shapiro.test(res3)
+shapiro.test(res4)
+
+ks.test(res1, "pnorm")
+
+```
+
+#Visual representation of Residual Histogram against normal curve
+
+```{r warning=FALSE}
+
+ residuals=resid(DATA.lm)
+c=hist(residuals, xlab = "Residuals", ylab="Density" ,col = "blue",main = "Histogram of residuals",freq  = FALSE)
+xlines <-seq(min(c$breaks),max(c$breaks),length.out=100) #seq of x for pdf
+lines(x = xlines,y=dnorm(xlines,mean=mean(residuals),sd=sd(residuals)),col="orange")
+
+#Symmetric, tails are heavy- Ok to proceed based on visual representation
+
+```
+#Standardization of the data
+
+```{r warning=FALSE}
+Df <- as.data.frame(DATA1)
+for (i in 1:length(Df)){Df[,i] <- (Df[,i] - mean(Df[,i])) / sd(Df[,i])}
+
+```
+
+#Model selection
+
+#Model selection by Adjusted R2
+```{r}
+
+library(leaps)
+lp=leaps(x=Df[,1:11], y=Df[,12], names=names(Df)[1:11], 
+         method="adjr2") 
+model =lp$which
+which.max(lp$adjr2)
+
+#We would like to know what is the best subset of predictors that can give the best results. So by calculating the R²adj, we are looking forward to a R²adj that is the closest to 1. And by using leaps() function in Rstudio, we found our No.51 model with R²adj = 0.8424893 which is the nearest to 1. It includes the predictors as following: Income, EC, CO, Repair, Propdamage and persdamage.
+
+```
+
+
+#Model selection based on subset regression model
+```{r warning=FALSE}
+regsub <- regsubsets(Assistance ~., data = Df)
+sumreg <- summary(regsub)
+
+par(mfrow = c(1,1))
+plot( sumreg$rsq, xlab = "No. of variables", ylab = "R-square", type = "l" )
+plot( sumreg$adjr2, xlab = "No. of variables", ylab = "Adjusted R-square", type = "l" )
+plot( sumreg$cp, xlab = "No. of variables", ylab = "Cp values", type = "l" )
+plot( sumreg$bic, xlab = "No. of variables", ylab = "BIC", type = "l" )
+
+## Selected variables
+par(mfrow=c(1,1))
+plot(regsub, scale = "r2", main="Subset plot based on R2")
+plot(regsub, scale = "adjr2",main="Subset plot based on Adjusted R2")
+plot(regsub, scale = "Cp", main="Subset plot based on Mallow's CP")
+plot(regsub, scale = "bic", main=' Subset plot based on BIC')
+
+#R2=    Household, Houseprice, Income, EC, CO, Repair, Propdamage and persdamage
+#Adj R2=Income, EC, CO, Repair, Propdamage and persdamage
+#Mallow's cp=Income, EC, CO, Repair, Propdamage and persdamage
+#BIC= Income, Repair, Propdamage and persdamage
+
+```
+
+
+#Stepwise regression
+```{r warning=FALSE}
+
+full.model  <- lm(Assistance ~ ., data = Df)
+start.model <- lm(Assistance ~ 1, data = Df)
+
+step(start.model, direction = "both", scope = formula(full.model))
+
+#Predictors =Income, EC, CO, Repair, Propdamage and persdamage
+
+```
+
+
+#Updated model based on the outcome of model selection techniques
+```{r}
+
+#creating new dataframe of selected features in terms of standardized numbers
+New_df=  cbind(Df[,4],Df[,6],Df[,7], Df[,9], Df[,10], Df[,11],Df[,12])
+New_df=as.data.frame(New_df)
+colnames(New_df)=c('Income', ' EC	', 'CO', 'Repair', 'propdamage', 'persdamage', 'Assistance')
+
+#Fitting multiple linear regression for selected model
+DATA.lm1= lm (Assistance ~ Income + EC	+ CO + Repair + propdamage +	persdamage , New_df)
+summary(DATA.lm1)
+
+```
+
+#Testing for Multicollinearity
+
+```{r warning=FALSE}
+
+round(cor(New_df),2)
+
+#Multicollinearity exists if the features have moderate(>0.6) or high (>0.8) correlation among each other. We observe that EC & CO are moderately correlated with correlation of 0.65. We go ahead with the remedial measure of dropping one of the correlated predictor : EC (based on individual slope t test outcome in summary btw CO & EC- EC has higher p value)
+
+```
+#Updated model based on the outcome of model selection techniques
+```{r}
+
+New_df1=  New_df[,-2] #dropping EC due to multicollinearity
+
+#Fitting multiple linear regression for selected model
+DATA.lm5= lm (Assistance ~ . , New_df1)
+summary(DATA.lm5)
+
+```
+#Individual T test results
+
+```{r}
+#Keeping level of significance at 5%, based on summary output from fitting multiple linear regression model, T test for individual slopes have led us to  reject the null hypothesis of population regression coefficient being zero. We see that except for CO, all other predictors have significant evidence of having linear relationship with the response i.e. Assistance in the population.
+
+#We now go ahead to conduct F test and determining coefficient of partial determination
+
+```
+
+
+
+#F test of regression relation
+
+```{r warning=FALSE}
+
+#H0: β1 = β2 = β3 = β4 = β5= 0 
+#Ha: not both βi's = 0 
+#alpha=0.05
+
+#Full model
+anova(DATA.lm5)
+
+#Reduced model
+DATA.lm0 <- lm(Assistance ~ 1, data=New_df1)
+anova(DATA.lm0)
+
+#F*=MSR / MSE
+F= (999 - 156.79)/(999- 994)/156.79*994
+F
+#p value
+1- pf(F, 5, 994)
+
+# F test statistic= 1067.87
+#p-value= < 2.2e-16
+#Since p-value  < 2.2e-16 < alpha 0.05, we proceed to reject null hypothesis
+
+#At 5% level of significance, we have sufficient evidence to reject the null hypothesis. Hence, we may conclude that atleast one of βi's is not equal to zero. Hence, there is significant evidence of regression relation between between Damage Assistance & predictors.
+  
+```
+
+# Partial F tests - testing for quantified amounts
+
+```{r warning=FALSE}
+
+#H0:  β3= β4 = β5= 0   #personal damage, repairs & property damage put together do not have significant influence
+#Ha: not all β3= β4 = β5 = 0 
+#alpha=0.05
+
+#Full model
+anova(DATA.lm5)
+
+#Reduced model
+DATA.lm2 <- lm(Assistance ~ Income + CO , data=New_df1)
+anova(DATA.lm2)
+
+#F*=MSR / MSE
+F= (985.55 - 156.79)/(997- 994)/156.79*994
+F
+#p value
+1- pf(F, 2, 994)
+
+# F test statistic= 1751.361
+#p-value= < 2.2e-16
+#Since p-value  < 2.2e-16 < alpha 0.05, we proceed to reject null hypothesis
+
+#At 5% level of significance, we have sufficient evidence to reject the null hypothesis. Hence, we may conclude that atleast one of βi's is not equal to zero. Hence, there is significant evidence of regression relation between between Damage Assistance & personal damage , Repairs& property damage put together
+  
+```
+
+
+# Partial F tests - testing for external factors of Income 
+
+```{r warning=FALSE}
+
+#H0:  β1= 0   #Income does not have significant influence over Assistance
+#Ha: β1 ≠ 0 
+#alpha=0.05
+
+#Full model
+anova(DATA.lm5)
+
+#Reduced model
+DATA.lm4 <- lm(Assistance ~ CO+persdamage+propdamage+Repair , data=New_df1)
+anova(DATA.lm4)
+
+#F*=MSR / MSE
+F= (157.65 - 156.79)/(995- 994)/156.27*994
+F
+#p value
+1- pf(F, 2, 995)
+
+# F test statistic= 5.4702
+#p-value= 0.0043
+#Since p-value  0.0043 < alpha 0.05, we proceed to reject null hypothesis
+
+#At 5% level of significance, we have sufficient evidence to reject the null hypothesis. Hence, we may conclude that there is significant evidence of regression relation between between Damage Assistance & Income of individual applicants
+  
+```
+
+# Partial F tests - testing for external factors of Income & community index
+
+```{r warning=FALSE}
+
+#H0:  β2= 0   #Community index does not have significant influence over Assistance
+#Ha: β2 ≠ 0 
+#alpha=0.05
+
+#Full model
+anova(DATA.lm5)
+
+#Reduced model
+DATA.lm4d <- lm(Assistance ~ Income+persdamage+propdamage+Repair , data=New_df1)
+anova(DATA.lm4d)
+
+#F*=MSR / MSE
+F= (157.14 - 156.79)/(995- 994)/156.27*994
+F
+#p value
+1- pf(F, 2, 995)
+
+# F test statistic= 2.226
+#p-value= 0.1084
+#Since p-value  0.1084 > alpha 0.05, we fail to reject null hypothesis
+
+#At 5% level of significance, we do not have sufficient evidence to reject the null hypothesis. Hence, we may conclude that there is no significant evidence of regression relation between between Damage Assistance & community index of individual applicant's community
+    
+```
+
+#Updated model based on the outcome of F tests & t tests
+```{r}
+
+New_df2=  New_df1[,-2] #dropping CO based on F test
+
+#Fitting multiple linear regression for selected model
+DATA.lm4= lm (Assistance ~ . , New_df2)
+summary(DATA.lm4)
+
+```
+
+
+#joint interval estimates of β1, β2, β3, β4  using a 90% family confidence
+
+```{r warning=FALSE}
+
+round(confint(DATA.lm4, level = (1 - .10/4)),4)
+
+#The joint interval for not of the βi's contains 0 . We can conclude that there is sufficient evidence of linear relationship between each of the predictors with response Assistance in the population
+
+```
+
+
+
+#Coefficient of determination
+```{r warning=FALSE}
+
+#coefficient of multiple determination
+summary(DATA.lm4)$r.squared
+
+#coefficient of adjusted multiple determination
+summary(DATA.lm4)$adj.r.squared
+
+#coefficient of partial determination for each predictors
+anova(DATA.lm4) #full model
+
+#Dropping Income
+DATA1.lm <- lm(Assistance ~ Repair + propdamage +	persdamage , New_df2)
+anova(DATA1.lm)
+#R2X1|X2_X3_X4
+R2X1_rest=(158.27 -157.14)/157.65 
+R2X1_rest*100
+#When Income is added to model containing all other predictors, SSE is reduced by 0.72%. 
+
+#Dropping Repair
+DATA2.lm <- lm(Assistance ~ Income+  propdamage +	persdamage , New_df2)
+anova(DATA2.lm)
+#R2X3|X1_X2_X4
+R2X2_rest=(175.78 -157.14)/175.78
+R2X2_rest*100
+#When Repair is added to model containing all other predictors, SSE is reduced by 10.60%
+
+#Dropping Property damage
+DATA3.lm <- lm(Assistance ~ Income+ Repair+ 	persdamage , New_df2)
+anova(DATA3.lm)
+#R2X3|X1_X2_X4
+R2X3_rest=(463.21 -157.14)/463.21
+R2X3_rest*100
+#When Property damage is added to model containing all other predictors, SSE is reduced by 66.08%
+
+#Dropping Personal damage
+DATA4.lm <- lm(Assistance ~ Income+  Repair+ propdamage , New_df2)
+anova(DATA4.lm)
+#R2X4|X1_X2_X3
+R2X4_rest=(204.93 -157.14)/204.93
+R2X4_rest*100
+#When Personal damage is added to model containing all other predictors, SSE is reduced by 23.32%
+
+```
+
+#Testing for interaction term between Property damage & personal damage
+
+```{r warning=FALSE}
+
+DataInt.lm=lm(Assistance ~  Income + Repair + propdamage +	persdamage +propdamage*persdamage, New_df2 )
+summary(DataInt.lm)
+
+#Full model
+anova(DataInt.lm)
+
+#Reduced model
+anova(DATA.lm4) 
+
+#H0: β34= 0  (In favour of reduced model without interaction term- X4*X5)
+#Ha: β34 ≠ 0  (In favour of full model with interaction term- X4*X5)
+#alpha=0.05
+
+#F*=(SSE(R) - SSE (F))/ (DF(R)-DF(F)) / (SSE(F)/ DF(F))
+F= ( 157.14-157.08 )/(995- 994)/157.08* 994
+F
+#p value
+1- pf(F, 1,994)
+
+# F test statistic= 0.3798
+#p-value=  0.5379
+#Since p-value   0.5379 >  alpha 0.05, we fail to reject null hypothesis
+
+#At 5% level of significance, we do not have sufficient evidence to reject the null hypothesis. Hence, we are in favour of reduced model & we may drop the interaction drop X3*X4 from the model.
+
+```
+
+
+#Testing for quadratic term for Property damage 
+
+```{r warning=FALSE}
+
+#dataframe of selected features in terms of original numbers
+Org_df=  cbind(DATA1[,4], DATA1[,9], DATA1[,10], DATA1[,11],DATA1[,12])
+Org_df=as.data.frame(Org_df)
+colnames(Org_df)=c('Income', 'Repair', 'propdamage', 'persdamage', 'Assistance')
+
+#centering all variables
+Quad_df <- as.data.frame(Org_df)
+for (i in 1:length(Quad_df)){Quad_df[,i] <- (Quad_df[,i] - mean(Quad_df[,i]))}
+
+Quad_df$propdamage_2 = Quad_df$propdamage^2
+
+#Full model
+Quad_c.lm= lm(Assistance~.,Quad_df)
+#Reduced model
+Linear.lm= lm(Assistance ~ Income 	+ Repair + propdamage +	persdamage , Quad_df)
+
+
+#H0: β33 = 0 (in favour of dropping quadratic term- linear model)
+#Ha: β33 ≠ 0 (in favour of retaining quadratic term)
+#alpha=0.05
+
+# Quadratic model
+anova(Quad_c.lm)
+#Linear model
+anova(Linear.lm)
+
+#F*=(SSE(R) - SSE (F))/ (DF(R)-DF(F)) / (SSE(F)/ DF(F))
+F= (1.3664e+10 - 1.2358e+10 )/(995- 994)/1.2358e+10* 994
+F
+
+#p value
+1- pf(F, 1,994)
+
+# F test statistic= 105.0512
+#p-value= 0.0
+#Since p-value  0.00 < alpha 0.05, we rpoceed to reject null hypothesis. We have sufficient evidence to accept the full model including quadratic term .
+
+```
+
+#Model evaluation
+
+#Updated model with Quadratic term
+```{r warning=FALSE}
+
+#in terms of recentered variables
+summary(Quad_df)
+
+#expressing in terms of original terms
+Org_df$propdamage_square = Org_df$propdamage^2
+
+Quad.lm <- lm(Assistance~., data=Org_df)
+summary(Quad.lm)
+
+
+anova(Quad.lm)
+
+#coefficient of multiple determination
+summary(Quad.lm)$r.squared
+
+#coefficient of adjusted multiple determination
+summary(Quad.lm)$adj.r.squared
+
+
+```
+
+
+
+#Scatterplot for updated model
+
+```{r warning=FALSE}
+
+
+
+plot(propdamage, Assistance, col='dark green')
+plot(Org_df$propdamage_square, Assistance, col='purple', xlab='Quadratic term')
+plot(Repair, Assistance, col='blue')
+plot(persdamage, Assistance, col='dark orange')
+plot(Income, Assistance, col='dark blue')
+
+
+```
+
+
+#Residual plots for fitted model
+```{r warning=FALSE}
+
+plot(resid(Quad.lm) ~ fitted(Quad.lm), xlab = "Fitted", ylab = "Residual", main='Residual plot of fitted model', col='dark blue')
+abline(h=0)
+#Most of the points bounce around randomly around 0 forming a random. 1 outlier above the 0 line and 6-10 points standing out below 0 line. Else, a well behaved residual fit with no clear cyclical pattern
+
+
+plot(resid(Quad.lm) ~ propdamage, New_df2, ylab = "Residual", main='Residual plot for property damage')
+abline(h=0)
+plot(resid(Quad.lm) ~ Org_df$propdamage_square, New_df2, ylab = "Residual", main='Residual plot for Quadratic term damage')
+abline(h=0)
+plot(resid(Quad.lm) ~ persdamage, New_df2, ylab = "Residual", main='Residual plot for personal damage')
+abline(h=0)
+plot(resid(Quad.lm) ~ Income, New_df2, ylab = "Residual", main='Residual plot for Income')
+abline(h=0)
+plot(resid(Quad.lm) ~ Repair, New_df2, ylab = "Residual", main='Residual plot for Repairs')
+abline(h=0)
+
+
+
+```
+
+#Visual representation of Residual Histogram against normal curve
+```{r warning=FALSE}
+
+residuals=resid(Quad.lm)
+c=hist(residuals, xlab = "Residuals", ylab="Density" ,col = "blue",main = "Histogram of residuals",freq  = FALSE)
+xlines <-seq(min(c$breaks),max(c$breaks),length.out=100) #seq of x for pdf
+lines(x = xlines,y=dnorm(xlines,mean=mean(residuals),sd=sd(residuals)),col="orange")
+#Symmetric, tails are heavy
+
+#Before transformation
+shapiro.test(resid(Quad.lm))
+
+#Transformation of Response
+LogY.lm= lm(log(Assistance) ~. , New_df2)
+#Shapiro test after transformation
+shapiro.test(resid(LogY.lm))
+
+#No change in results, going ahead based on the visual representation that error terms are approximately normally distributed
+
+```
+#Boxplots for updated model
+
+```{r warning=FALSE}
+
+boxplot(resid(Quad.lm),main="Residual boxplot", col='brown')
+boxplot(propdamage, col='dark green', xlab='property damage')
+boxplot(Repair, col='blue', xlab='Repairs')
+boxplot(persdamage,col='green', xlab='Personal damage')
+boxplot(Income, col='dark blue', xlab='Income')
+
+#Each of the plot indicates that there are some outliers in the model. We are concerned if outliers are influential or not. In the next few steps, we have conducted tests to determine outliers and conclude if they are influential
+
+```
+#Model Diagnostics
+#Bonferroni outlier test procedure with α = 0.10. State the decision rule and conclusion.
+
+```{r warning=FALSE}
+
+#Plot of studentized deleted residuals 
+plot(rstudent(Quad.lm),type = "o",xlab = "Case Index",col='Blue')
+abline(h=3)
+abline(h=-3)
+text(rstudent(Quad.lm), labels=rownames(Assistance), cex=0.9, font=2)
+title("(a) Studentized Deleted residuals")
+
+#Test
+n=1000
+p=6 
+t=1-0.10/(2*1000)
+tstatistic=qt(t, n-p-1) 
+tstatistic
+#A data point is considered to be an outlier if |ti| > t(α/2n, n − p − 1)
+ifelse(abs(rstudent(Quad.lm)) < tstatistic, "Non-outlier", "Outlier") 
+#9 outliers as per this test
+
+#H0: There are potential outliers in the model
+#Ha: There are no potential outliers in the model
+#alpha=0.10
+
+library('car')
+outlierTest(Quad.lm,cutoff=0.10)
+
+#p-value for top 9 residuals are very small
+#Since p-value <  alpha 0.10, we  reject null hypothesis
+
+#At 10% level of significance, we  have sufficient evidence to reject the null hypothesis. Hence, there are no outliers 
+
+```
+# Leverage values
+```{r warning=FALSE}
+
+hat.lm=round(hatvalues(Quad.lm), 3)
+
+plot(hat.lm,type = "o", col='brown')
+abline(h=2*(p)/n)
+text(hat.lm, labels=rownames(Assistance), cex=0.9, font=2)
+title(" Leverage Values")
+
+checkpoint=2*p/n
+ifelse(hat.lm > checkpoint , "outlier", "Non-outlier")
+table(ifelse(hat.lm > checkpoint , "outlier", "Non-outlier"))
+#There are 60 outliers in the diagonal elements of hat matrix.
+
+```
+
+#Cook’s distance for each case
+
+```{r warning=FALSE}
+
+plot(cooks.distance(Quad.lm),type = "o")# cook's distance
+text(cooks.distance(Quad.lm), labels=rownames(Assistance), cex=0.9, font=2)
+title("Cook's Distance")
+
+ifelse((cooks.distance(Quad.lm)) <= 1, "Non-outlier", "Outlier") 
+table(ifelse((cooks.distance(Quad.lm)) <= 1, "Non-outlier", "Outlier") )
+
+#If cooks distance Di is greater than 1, then the ith data point is worthy of further investigation. Here, we see that all Di's lie within 1 & hence , there are no outliers
+
+#Also, Di follows F(p, n − p) distribution. If the percentile value if less than 20%, the outlier is not influential. Our largest outlier was case 454.
+pf(cooks.distance(Quad.lm)[454],p,n-p)*100
+#this comes around 0.5%, hence, model does not have any influential outliers 
+
+```
+
+# The DFFITS, DFBETAS, and Cook’s distance values for largest outlier 
+```{r warning=FALSE}
+#case 454 has studentized residual of 10.9625 
+
+a= cbind(
+  "DFFITS"  = round(dffits(Quad.lm), 454),
+  "DFBETA0" = round(dfbetas( Quad.lm)[,1], 454),
+  "DFBETA1" = round(dfbetas( Quad.lm)[,2], 454),
+  "DFBETA2" = round(dfbetas( Quad.lm)[,3], 454),
+  "Cook's D" = round(cooks.distance( Quad.lm), 454))
+a[454,]
+
+#Outlier case 454  has Cook’s distance value=0.1121 is lesser than 1 and hence, is not influential
+#Then absolute values of DFFITS value is 0.868 below the cut off of 1. Hence, Case 454 is not influential 
+#DFBETAS values is  less than 1, suggesting non-influential.
+#Hence, although our fitted model has outliers, these are not influential
+
+```
+
+
+#Model Validation
+```{r}
+
+#install.packages('tidyverse')
+library(tidyverse) 
+library(caret) 
+
+set.seed(1)
+#splitting dataset into Training & test data
+random_sample <- createDataPartition(Org_df $ Assistance,  p = 0.70, list = FALSE) 
+training_dataset  <- Org_df[random_sample, ]
+testing_dataset <- Org_df[-random_sample, ]
+
+model <- lm(Assistance ~., data = training_dataset)
+predictions <- predict(model, testing_dataset)
+
+# computing model performance metrics 
+data.frame(R2 = R2(predictions, testing_dataset $ Assistance),      #R2 ->higher the better
+           MSPE = RMSE(predictions, testing_dataset $ Assistance)^2, #MSPE
+           RMSE = RMSE(predictions, testing_dataset $ Assistance),  #Root mean squared error
+           Relative_error=( RMSE(predictions, testing_dataset$         Assistance))/mean(testing_dataset$Assistance))                 #Relative error = RMSE/ mean(Y)
+           
+#The model has high R2 on validation set of 90.5% . It has low relative error of 21%.
+#Hence, our model has good predictive ability on future data
+
+
+```
+
+#kNN regression comparison
+```{r}
+library(caret)
+
+train_x = training_dataset[, -5]
+train_x = scale(train_x)[,]
+train_y = training_dataset[,5]
+
+test_x = testing_dataset[, -5]
+test_x = scale(testing_dataset[,-5])[,]
+test_y = testing_dataset[,5]
+set.seed(123)
+knnmodel = knnreg(train_x, train_y)
+pred_y = predict(knnmodel, data.frame(test_x))
+
+
+
+# computing model performance metrics 
+data.frame(R2 = R2(pred_y, test_y),      #R2 ->higher the better
+           MSPE = RMSE(pred_y, test_y)^2, #MSPE
+           RMSE = RMSE(pred_y, test_y),  #Root mean squared error
+           Relative_error=( RMSE(pred_y, test_y))/mean(test_y))                 #Relative error = RMSE/ mean(Y)
+           
+
+```
+
+
+##
+
+
+```{r warning=FALSE}
+#Brown-Forsythe test
+Y_hat=  5975.8217 -0.5220*Age +23.4470*Household     -2.7378*Houseprice    -0.0085*Income +   0.0027*Popln  + 1475.0299 *EC -500.4092 *CO+    3.0719*Waterlevel -6500.5799*Repair +  0.8865*propdamage+0.8635* persdamage
+g<-rep(1,1000) #repetitions starting from 1 to 46
+MedianYhat=median(Y_hat)
+g[DATA1$Assistance<=MedianYhat]=0
+library(ALSM)
+bftest(DATA.lm,g,alpha=.05)
+
+#H0: population variances of error terms are constant
+#Ha:  population variances of error terms are varies
+#alpha=0.05
+#test statistic=5.604109
+#p-value=0.3750
+#Since p-value 0.3750 > alpha 0.05, we accept null hypothesis
+
+#At 5% level of significance, we do not have sufficient evidence to reject that null hypothesis. Hence, we can conclude that  population variances of error terms are constant at level of X.
+
+```
+
+#Answering research question
+```{r warning=FALSE}
+
+
+Df.lm= lm (Assistance ~ Age	+ Household + Houseprice +Income +	Popln +	EC	+CO +	Waterlevel+	Repair+ propdamage +	persdamage, Df)
+
+#coefficient of partial determination for each predictors
+anova(Df.lm) #full model
+
+#PART 1
+#Dropping community factors
+
+#R2comm|others
+R2comm_rest=(157.06-156.33)/157.06
+R2comm_rest*100
+#When Income is added to model containing all other predictors, SSE is reduced by 0.47% 
+
+#PART 2
+#Dropping water level
+DATA_water.lm <- lm(Assistance ~  	Age	+ Household + Houseprice +Income +	Repair+ propdamage +	persdamage, Df)
+anova(DATA_water.lm)
+#R2X3|X1_X2_X4
+Rwater_rest=(157.08 -156.33)/157.08
+Rwater_rest*100
+
+#PART 3
+cor(Repair, Houseprice)
+
+
+#PART4
+DATA_Com.lm <- lm(persdamage+propdamage ~  	Age	+ Household + Houseprice +Income  +	Waterlevel+	Repair, Df)
+summary(DATA_Com.lm)
+
+
+DATA_Com.lm <- lm(persdamage+propdamage ~  	Age	+ EC+ CO+ Popln +Household + Houseprice +Income  +	Waterlevel+	Repair, Df)
+summary(DATA_Com.lm)
+
+
+
+```
